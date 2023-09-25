@@ -23,6 +23,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "gotify.serviceAccountName" . }}
+      automountServiceAccountToken: false
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -32,51 +33,18 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
-            {{- if .Values.server.responseHeaders }}
-            - name: GOTIFY_SERVER_RESPONSEHEADERS
-              value: {{ .Values.server.responseHeaders | quote}}
-            {{- end }}
-            {{- if .Values.server.timezone }}
+            {{- if .Values.timezone }}
             - name: TZ
-              value: {{ .Values.server.timezone | quote}}
+              value: {{ .Values.timezone | quote}}
             {{- end }}
-            {{- if .Values.server.streamAllowedOrigins }}
-            - name: GOTIFY_SERVER_STREAM_ALLOWEDORIGINS
-              value: {{ .Values.server.streamAllowedOrigins | quote }}
-            {{- end }}
-            {{- if  .Values.server.databaseDialect }}
-            - name: GOTIFY_DATABASE_DIALECT
-              value: {{ .Values.server.databaseDialect | quote }}
-            {{- end }}
-            {{- if .Values.server.databaseConnection }}
-              {{- if  eq .Values.server.databaseDialect "sqlite3" }}
-            - name: GOTIFY_DATABASE_CONNECTION
-              value: "data/gotify.db"
-              {{- else }}
-            - name: GOTIFY_DATABASE_CONNECTION
-              value: {{ .Values.server.databaseConnection | quote }}
-              {{- end }}
-            {{- end }}
-            - name: GOTIFY_DEFAULTUSER_NAME
-              value: {{ .Values.server.defaultUserName | quote }}
-            - name: GOTIFY_DEFAULTUSER_PASS
-              value: {{ .Values.server.defaultUserPassword | quote }}
-            {{- if .Values.server.passstrength }}
-            - name: GOTIFY_PASSSTRENGTH
-              value: {{ .Values.server.passstrength | quote }}
-            {{- end }}
-            - name: GOTIFY_UPLOADEDIMAGESDIR
-              value: "data/images"
-            - name: GOTIFY_PLUGINSDIR
-              value: "data/plugins"
-            - name: GOTIFY_REGISTRATION
-              value: {{ .Values.server.registration | quote }}
           volumeMounts:
             - name: {{ include "gotify.fullname" . }}-data
               mountPath: /app/data
+            - name: {{ include "gotify.fullname" . }}-config
+              mountPath: /etc/gotify
           ports:
             - name: http
-              containerPort: 80
+              containerPort: {{ .Values.gotify_config.server.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
@@ -96,6 +64,9 @@ spec:
         {{- else }}
           emptyDir: { }
         {{- end }}
+        - name: {{ include "gotify.fullname" . }}-config
+          configMap:
+            name: {{ include "gotify.fullname" . }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
